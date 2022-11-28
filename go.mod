@@ -1,4 +1,4 @@
-module supertext.net/git/scat
+module supertext.net/git/cats
 
 go 1.18
 
