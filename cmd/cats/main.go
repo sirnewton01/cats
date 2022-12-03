@@ -13,7 +13,7 @@ import (
 
 var CLI struct {
 	Path  string `arg:"" required:""`
-	Srefl string `name="srefl" enum:"redirect,extension,none" default:"none"`
+	Srefl string `name="srefl" enum:"redirect,extension,none" default:"none" help:"Reflect on either 'redirect' or 'extension'"`
 }
 
 func main() {
@@ -108,10 +108,44 @@ func main() {
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	pgr := ""
+	for _, p := range []string{"more", "less"} {
+		if _, err := exec.LookPath(p); err == nil {
+			pgr = p
+		}
+	}
+
+	var more *exec.Cmd
+	if pgr != "" {
+		more = exec.Command(pgr)
+		cmd.Stdin = os.Stdin
+		cmd.Stderr = os.Stderr
+		var err error
+		if more.Stdin, err = cmd.StdoutPipe(); err != nil {
+			panic(err)
+		}
+		more.Stdout = os.Stdout
+		more.Stderr = os.Stderr
+
+		if err := cmd.Start(); err != nil {
+			panic(err)
+		}
+
+		if err := more.Start(); err != nil {
+			panic(err)
+		}
+
+		defer more.Wait()
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		if err := cmd.Start(); err != nil {
+			panic(err)
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			os.Exit(ee.ExitCode())
 		}
